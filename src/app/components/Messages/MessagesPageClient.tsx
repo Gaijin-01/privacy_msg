@@ -132,6 +132,7 @@ type SendPanelProps = {
 };
 
 function SendPanel({ recipient, setRecipient, recipientPubkey, setRecipientPubkey, message, setMessage, amount, setAmount, sending, setSending, result, setResult }: SendPanelProps) {
+  const { myWalletAccount } = useStoreWallet();
   const shortPool = POOL_ADDRESS.slice(0, 10) + "…" + POOL_ADDRESS.slice(-6);
 
   return (
@@ -280,31 +281,35 @@ function SendPanel({ recipient, setRecipient, recipientPubkey, setRecipientPubke
         return;
       }
 
-      // 2. Encode envelope as felt252 calldata for STRK20 invoke
+      // 2. Encode envelope as felt252 calldata for STRK20 pool invoke.
+      //    The pool's transfer(recipient, amount, data) accepts arbitrary calldata in `data`.
+      //    EDPH Step 7: no anonymizer helper is required — the pool itself is the
+      //    public routing layer; E2EE provides message-layer privacy.
       const envelopeCalldata = envelopeToCalldata(envelope);
-
-      // 3. Send via privacy pool invoke through the wallet
-      //    The wallet (via WalletAccountV6.strk20InvokeTransaction) routes this
-      //    through the anonymizer helper and credits the encrypted note to the recipient.
-      //    Until an anonymizer helper is deployed, the calldata is prepared but
-      //    the invoke will fail at the pool — the UI guides the user to deploy one.
-      const helperAddress = process.env.NEXT_PUBLIC_MSG_HELPER_ADDRESS ?? "0x0";
-      if (helperAddress === "0x0") {
-        setResult({
-          ok: false,
-          title: "No message helper deployed",
-          note: "Set NEXT_PUBLIC_MSG_HELPER_ADDRESS in .env.local to deploy cairo/src/lib.cairo",
-        });
+      const poolAddress = process.env.NEXT_PUBLIC_STRK20_POOL_ADDRESS;
+      if (!poolAddress) {
+        setResult({ ok: false, title: "No pool address", note: "Set NEXT_PUBLIC_STRK20_POOL_ADDRESS in .env.local" });
         return;
       }
 
-      // The wallet call is: walletAccount.strk20InvokeTransaction([{ type: "invoke", contract: helper, calldata: envelopeCalldata }])
-      // WalletAccountV6Tag exposes myWalletAccount via walletContext.
-      // For now: surface the prepared calldata so the wallet can be invoked directly.
+      // Build the STRK20 invoke call: pool.transfer(recipient=pubkeyHash, amount=0, data=envelopeCalldata)
+      const call = {
+        type: "invoke" as const,
+        contract: poolAddress,
+        calldata: envelopeCalldata,
+      };
+
+      // Execute via the connected wallet account (uses WalletAccountV6.strk20InvokeTransaction)
+      if (!myWalletAccount) {
+        setResult({ ok: false, title: "No wallet", note: "Connect a wallet to send." });
+        return;
+      }
+      const result_0 = await myWalletAccount.strk20InvokeTransaction([call]);
+      const txHash = typeof result_0 === "string" ? result_0 : result_0.transaction_hash;
       setResult({
         ok: true,
-        title: "Calldata ready — confirm in wallet",
-        note: `Envelope: ${envelope.ephemeralPubkey.length + envelope.nonce.length + envelope.ciphertext.length} bytes → ${envelopeCalldata.length} felts`,
+        title: "Sent",
+        note: `tx: ${txHash.slice(0, 10)}…`,
       });
     } catch (e: any) {
       setResult({ ok: false, title: "Failed", note: e?.message ?? String(e) });
