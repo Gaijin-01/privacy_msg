@@ -1,40 +1,23 @@
-# Starknet Privacy Starter Kit
+# privacy_msg
 
-A lean Next.js starter for building privacy dApps on Starknet with [STRK20](https://eprint.iacr.org/2026/474) via `WalletAccountV6` (starknet.js v10). Shield, unshield, privately transfer, read shielded balances, and run an anonymizer (`privacy_invoke`) — all through the user's wallet, never touching a viewing key.
+Metadata-resistant private messaging on Starknet.
 
-> Demo defaults (fixed token, fixed amounts, and an *echo* helper that just round-trips) are marked `DEMO` in the code — swap them for your own.
+**Visible:** payment memo attached to every message.  
+**Invisible:** sender-recipient link, message content, recipient identity.  
+**Settlement:** every transfer routes through the STRK20 pool at `0x040337b1af3c663e86e333bab5a4b28da8d4652a15a69beee2b677776ffe812a`.
 
-## Quick start
+## Architecture
 
-```bash
-npm install
-cp .env.example .env.local     # add your Alchemy key
-npm run dev                    # http://localhost:3000
-```
+Built on the [STRK20 privacy SDK](https://github.com/starknetworks/strk20-privacy-sdk). Each session uses an ephemeral identity bundle derived from a master seed — no persistent wallet linkage at the application layer.
 
-Needs a free [Alchemy](https://alchemy.com) Starknet RPC key and a privacy-enabled wallet (Ready) on Sepolia or Mainnet.
+## Status
 
-## What's inside
+In active development. Target: end-to-end private message on Starknet mainnet by 2026-08-31.
 
-- **Connect** — `get-starknet` v6 discovery + wallet picker, with `eip1193Adapters: []` to stop MetaMask popups → `SelectWallet.tsx`
-- **Actions** — shield / unshield / private transfer / echo / balances via `strk20InvokeTransaction` → `WalletAccountV6Tag.tsx`
-- **Config** — token, RPC providers, helper addresses (all `DEMO`-labelled) → `src/utils/constants.ts`
-- **Anonymizer** — a minimal `privacy_invoke` contract you can deploy from the UI → `cairo/src/lib.cairo`
+## References
 
-Stack: Next.js 16 · React 19 · TypeScript · starknet.js 10 · zustand. No component framework.
-
-## Gotchas worth knowing
-
-- **Placeholders are literal strings.** In the `invoke` action, `"OPEN"`, `"${poolAddress}"`, `"${openNoteIds[0]}"` are substituted by the wallet — never `num.toHex` them. Only real token/amounts get hex-normalized.
-- The echo helper is a **no-op demo** — replace its body with a real action (swap/vault/lend); the `privacy_invoke` shape stays the same. You own the tests and audit.
-- Ready wallet works today (Xverse's Wallet API is landing); the app degrades gracefully for others.
-
-## Deploy
-
-Standard Next.js on [Vercel](https://vercel.com/new) — set `NEXT_PUBLIC_PROVIDER_URL` (and optionally `NEXT_PUBLIC_STRK20_ECHO_HELPER_SEPOLIA`).
-
-## Links
-
-[STRK20 by example](https://strk20-by-example.org/) · [Privacy SDK](https://github.com/starkware-libs/starknet-privacy) · [WalletAccount guide](https://starknet-js.com/docs/next/guides/account/walletAccount/#with-get-starknet-v6)
-
-Bootstrapped from [PhilippeR26/Starknet-WalletAccount](https://github.com/PhilippeR26/Starknet-WalletAccount).
+- [STRK20 by Example](https://strk20-by-example.org/what-is-strk20)
+- [STRK20 Privacy SDK](https://github.com/starknetworks/starknet-privacy)
+- [Starknet Wallet API](https://starknet-js.com/docs/next/guides/account/walletAccount)
+- [Starter Kit](https://github.com/Akashneelesh/strk20-starter-kit)
+- [Awesome STRK20](https://github.com/Akashneelesh/awesome-strk20)
