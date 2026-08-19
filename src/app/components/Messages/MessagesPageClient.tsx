@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { num } from "starknet";
+import { useStoreWallet } from "@/app/components/Wallet/walletContext";
 import styles from "../../uni.module.css";
+import { discoverMessages } from "@/lib/note-discovery";
 import WalletAccountV6Tag from "@/app/components/client/WalletHandle/WalletAccountV6Tag";
 import SelectWallet from "@/app/components/client/WalletHandle/SelectWallet";
 import {
@@ -23,6 +25,7 @@ const TABS: { key: TabKey; label: string }[] = [
 ];
 
 export default function MessagesPageClient() {
+  const { address: walletAddress, myWalletAccount } = useStoreWallet();
   const [tab, setTab] = useState<TabKey>("send");
   const [recipient, setRecipient] = useState("");
   const [recipientPubkey, setRecipientPubkey] = useState("");
@@ -30,6 +33,8 @@ export default function MessagesPageClient() {
   const [amount, setAmount] = useState("0.001"); // STRK — dust, carrier for the memo
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; title: string; tx?: string; note?: string } | null>(null);
+  // P-256 viewing key for decrypting received messages (128 hex chars = 64 bytes x || y)
+  const [myViewingKey, setMyViewingKey] = useState("");
 
   const active = TABS.find((t) => t.key === tab)!;
 
@@ -312,6 +317,7 @@ function SendPanel({ recipient, setRecipient, recipientPubkey, setRecipientPubke
 // ─── Inbox panel ─────────────────────────────────────────────
 
 function InboxPanel() {
+  const { address: walletAddress, myWalletAccount } = useStoreWallet();
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Array<{ from: string; body: string; amount: string; tx: string; ts: string }>>([]);
 
@@ -375,8 +381,14 @@ function InboxPanel() {
   async function handleRefresh() {
     setLoading(true);
     try {
-      // TODO: wire to wallet.strk20Balances + event decoding
-      // For now: stub
+      if (!walletAddress || !myWalletAccount) {
+        setMessages([]);
+        return;
+      }
+      const provider = myWalletAccount as any; // starknet.js provider
+      const inbox = await discoverMessages(walletAddress, provider);
+      setMessages(inbox);
+    } catch (e: any) {
       setMessages([]);
     } finally {
       setLoading(false);
