@@ -2,13 +2,10 @@
 
 Metadata-resistant private messaging on Starknet.
 
-**Visible:** payment memo attached to every message.  
-**Invisible:** sender-recipient link, message content, recipient identity.  
-**Settlement:** every transfer routes through the STRK20 pool at `0x040337b1af3c663e86e333bab5a4b28da8d4652a15a69beee2b677776ffe812a`.
+**In scope:** Content privacy via end-to-end encryption.  
+**NOT in scope by default:** Value/relationship privacy from the STRK20 pool (separate property).
 
-## Architecture
-
-Built on the [STRK20 privacy SDK](https://github.com/starknetworks/strk20-privacy-sdk). Each session uses an ephemeral identity bundle derived from a master seed — no persistent wallet linkage at the application layer.
+**Status:** Pre-implementation. Target: end-to-end private message on Starknet mainnet by 2026-08-31.
 
 ## Status
 
