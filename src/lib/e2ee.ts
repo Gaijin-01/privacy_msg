@@ -7,7 +7,7 @@
  * - Encryption: AES-256-GCM (NIST SP 800-38D)
  * - Encoding: UTF-8 → bytes → encrypted bytes → felt252 calldata
  *
- * Each message uses a fresh ephemeral keypair — forward secrecy.
+ * Each message uses a fresh ephemeral keypair.
  *
  * Envelope format (on-chain calldata):
  *   [ephemeral_pubkey_x: u256, ephemeral_pubkey_y: u256,

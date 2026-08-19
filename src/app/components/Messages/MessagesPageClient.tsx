@@ -2,22 +2,14 @@
 
 import { useState } from "react";
 import { num } from "starknet";
-import { useStoreWallet } from "@/app/components/Wallet/walletContext";
 import styles from "../../uni.module.css";
-import { discoverMessages } from "@/lib/note-discovery";
 import WalletAccountV6Tag from "@/app/components/client/WalletHandle/WalletAccountV6Tag";
 import SelectWallet from "@/app/components/client/WalletHandle/SelectWallet";
-import {
-  encryptMessage,
-  envelopeToCalldata,
-  parsePubkeyHex,
-} from "@/lib/e2ee";
 
 // Pool address (same on mainnet + sepolia)
 const POOL_ADDRESS = "0x040337b1af3c663e86e333bab5a4b28da8d4652a15a69beee2b677776ffe812a";
 // Minimal message anonymizer — replace with your deployed contract
 const MSG_HELPER_ADDRESS = "0x0"; // TODO: deploy from cairo/
-
 type TabKey = "send" | "inbox";
 const TABS: { key: TabKey; label: string }[] = [
   { key: "send", label: "Send" },
@@ -25,16 +17,12 @@ const TABS: { key: TabKey; label: string }[] = [
 ];
 
 export default function MessagesPageClient() {
-  const { address: walletAddress, myWalletAccount } = useStoreWallet();
   const [tab, setTab] = useState<TabKey>("send");
   const [recipient, setRecipient] = useState("");
-  const [recipientPubkey, setRecipientPubkey] = useState("");
   const [message, setMessage] = useState("");
-  const [amount, setAmount] = useState("0.001"); // STRK — dust, carrier for the memo
+  const [amount, setAmount] = useState("0.001"); // STRK — dust value for settlement
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; title: string; tx?: string; note?: string } | null>(null);
-  // P-256 viewing key for decrypting received messages (128 hex chars = 64 bytes x || y)
-  const [myViewingKey, setMyViewingKey] = useState("");
 
   const active = TABS.find((t) => t.key === tab)!;
 
@@ -56,8 +44,7 @@ export default function MessagesPageClient() {
           <span className={styles.heroAccent}>on Starknet</span>
         </h1>
         <p className={styles.heroSub}>
-          Content is end-to-end encrypted. Sender and recipient are hidden by the privacy pool. (prototype — integration in progress)
-          Settlement through the{" "}
+          Protocol integration in progress. Settlement through the{" "}
           <a href={`https://voyager.online/tx/${POOL_ADDRESS}`} target="_blank" rel="noreferrer">
             STRK20 pool
           </a>
@@ -91,7 +78,6 @@ export default function MessagesPageClient() {
           <div className={styles.panel}>
             <SendPanel
               recipient={recipient} setRecipient={setRecipient}
-              recipientPubkey={recipientPubkey} setRecipientPubkey={setRecipientPubkey}
               message={message} setMessage={setMessage}
               amount={amount} setAmount={setAmount}
               sending={sending} setSending={setSending}
@@ -123,7 +109,6 @@ export default function MessagesPageClient() {
 
 type SendPanelProps = {
   recipient: string; setRecipient: (v: string) => void;
-  recipientPubkey: string; setRecipientPubkey: (v: string) => void;
   message: string; setMessage: (v: string) => void;
   amount: string; setAmount: (v: string) => void;
   sending: boolean; setSending: (v: boolean) => void;
@@ -131,16 +116,14 @@ type SendPanelProps = {
   setResult: (v: SendPanelProps["result"]) => void;
 };
 
-function SendPanel({ recipient, setRecipient, recipientPubkey, setRecipientPubkey, message, setMessage, amount, setAmount, sending, setSending, result, setResult }: SendPanelProps) {
-  const { myWalletAccount } = useStoreWallet();
+function SendPanel({ recipient, setRecipient, message, setMessage, amount, setAmount, sending, setSending, result, setResult }: SendPanelProps) {
   const shortPool = POOL_ADDRESS.slice(0, 10) + "…" + POOL_ADDRESS.slice(-6);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div style={{ fontSize: 14, color: "#8b8fa8", lineHeight: 1.6 }}>
-        <strong style={{ color: "#fff" }}>How it works:</strong> your message is encrypted
-        (AES-256-GCM + ECIES-KEM) and encoded in the calldata of a privacy-pool invoke.
-        The recipient decrypts it from on-chain events. Amount is dust (0.001 STRK).
+        <strong style={{ color: "#fff" }}>How it works:</strong> Settlement via STRK20 pool.
+        Message integration pending — requires confirmed pool calldata persistence.
       </div>
 
       <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -160,31 +143,6 @@ function SendPanel({ recipient, setRecipient, recipientPubkey, setRecipientPubke
             fontFamily: "monospace",
           }}
         />
-      </label>
-
-      <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: "#c0c2d4" }}>
-          Recipient P-256 pubkey{" "}
-          <span style={{ color: "#5c6ef8", fontWeight: 400 }}>(128 hex chars)</span>
-        </span>
-        <input
-          type="text"
-          placeholder="e.g. a1b2…f3e4 (recipient's P-256 public key x||y)"
-          value={recipientPubkey}
-          onChange={(e) => setRecipientPubkey(e.target.value.toLowerCase().replace(/[^0-9a-f]/g, "").slice(0, 128))}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 8,
-            border: "1px solid #3a3a5a",
-            background: "#1a1a2a",
-            color: "#e0e2f0",
-            fontSize: 14,
-            fontFamily: "monospace",
-          }}
-        />
-        <span style={{ fontSize: 12, color: "#8b8fa8" }}>
-          Ask the recipient for their P-256 public key (128 hex chars = x||y).
-        </span>
       </label>
 
       <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -250,7 +208,7 @@ function SendPanel({ recipient, setRecipient, recipientPubkey, setRecipientPubke
 
       <button
         onClick={handleSend}
-        disabled={sending || !recipient || !recipientPubkey || recipientPubkey.length !== 128 || !message || parseFloat(amount) <= 0}
+        disabled={sending || !recipient || !message || parseFloat(amount) <= 0}
         style={{
           padding: "12px 24px",
           borderRadius: 8,
@@ -272,44 +230,13 @@ function SendPanel({ recipient, setRecipient, recipientPubkey, setRecipientPubke
     setSending(true);
     setResult(null);
     try {
-      // 1. Encrypt the message with the recipient's P-256 public key
-      let envelope;
-      try {
-        envelope = await encryptMessage(message, parsePubkeyHex(recipientPubkey));
-      } catch (e: any) {
-        setResult({ ok: false, title: "Encryption failed", note: e?.message ?? String(e) });
-        return;
-      }
-
-      // 2. Encode envelope as felt252 calldata for STRK20 pool invoke.
-      //    The pool's transfer(recipient, amount, data) accepts arbitrary calldata in `data`.
-      //    EDPH Step 7: no anonymizer helper is required — the pool itself is the
-      //    public routing layer; E2EE provides message-layer privacy.
-      const envelopeCalldata = envelopeToCalldata(envelope);
-      const poolAddress = process.env.NEXT_PUBLIC_STRK20_POOL_ADDRESS;
-      if (!poolAddress) {
-        setResult({ ok: false, title: "No pool address", note: "Set NEXT_PUBLIC_STRK20_POOL_ADDRESS in .env.local" });
-        return;
-      }
-
-      // Build the STRK20 invoke call: pool.transfer(recipient=pubkeyHash, amount=0, data=envelopeCalldata)
-      const call = {
-        type: "invoke" as const,
-        contract: poolAddress,
-        calldata: envelopeCalldata,
-      };
-
-      // Execute via the connected wallet account (uses WalletAccountV6.strk20InvokeTransaction)
-      if (!myWalletAccount) {
-        setResult({ ok: false, title: "No wallet", note: "Connect a wallet to send." });
-        return;
-      }
-      const result_0 = await myWalletAccount.strk20InvokeTransaction([call]);
-      const txHash = typeof result_0 === "string" ? result_0 : result_0.transaction_hash;
+      // TODO: wire to wallet.strk20InvokeTransaction
+      // Structure: invoke helper with calldata, transfer as dust carrier
+      // Until helper is deployed: show placeholder
       setResult({
-        ok: true,
-        title: "Sent",
-        note: `tx: ${txHash.slice(0, 10)}…`,
+        ok: false,
+        title: "Helper not deployed yet",
+        note: `Deploy cairo/src/lib.cairo, then update MSG_HELPER_ADDRESS in MessagesPageClient.tsx`,
       });
     } catch (e: any) {
       setResult({ ok: false, title: "Failed", note: e?.message ?? String(e) });
@@ -322,7 +249,6 @@ function SendPanel({ recipient, setRecipient, recipientPubkey, setRecipientPubke
 // ─── Inbox panel ─────────────────────────────────────────────
 
 function InboxPanel() {
-  const { address: walletAddress, myWalletAccount } = useStoreWallet();
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Array<{ from: string; body: string; amount: string; tx: string; ts: string }>>([]);
 
@@ -330,13 +256,12 @@ function InboxPanel() {
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ fontSize: 14, color: "#8b8fa8", lineHeight: 1.6 }}>
         <strong style={{ color: "#fff" }}>How inbox works:</strong> queries your shielded notes
-        from the pool and decrypts message memos from anonymizer events.
-        Requires a privacy-enabled wallet connected.
+        from the pool. Integration pending.
       </div>
 
       {messages.length === 0 && !loading && (
         <div style={{ textAlign: "center", color: "#5c6ef8", fontSize: 14, padding: "32px 0" }}>
-          No messages yet. Connect your wallet and send your first private message.
+          No messages yet. Connect your wallet to view notes.
         </div>
       )}
 
@@ -386,14 +311,8 @@ function InboxPanel() {
   async function handleRefresh() {
     setLoading(true);
     try {
-      if (!walletAddress || !myWalletAccount) {
-        setMessages([]);
-        return;
-      }
-      const provider = myWalletAccount as any; // starknet.js provider
-      const inbox = await discoverMessages(walletAddress, provider);
-      setMessages(inbox);
-    } catch (e: any) {
+      // TODO: wire to wallet.strk20Balances + event decoding
+      // For now: stub
       setMessages([]);
     } finally {
       setLoading(false);
