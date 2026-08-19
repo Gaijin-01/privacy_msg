@@ -56,7 +56,7 @@ export default function MessagesPageClient() {
           <span className={styles.heroAccent}>on Starknet</span>
         </h1>
         <p className={styles.heroSub}>
-          Sender and recipient identities are hidden. Only the payment memo is visible.
+          Content is end-to-end encrypted. Sender and recipient are hidden by the privacy pool. (prototype — integration in progress)
           Settlement through the{" "}
           <a href={`https://voyager.online/tx/${POOL_ADDRESS}`} target="_blank" rel="noreferrer">
             STRK20 pool
